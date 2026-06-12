@@ -1,0 +1,10 @@
+image_id,u,v,x,y,z,label,confidence,weight
+frame_0000,288.80,211.34,-30.0,-20.0,0.0,left_lower_surface,0.95,
+frame_0000,371.54,210.27,30.0,-20.0,0.0,right_lower_surface,0.95,
+frame_0000,372.28,265.57,30.0,20.0,0.0,right_upper_surface,0.90,
+frame_0000,289.48,266.54,-30.0,20.0,0.0,left_upper_surface,0.90,
+frame_0000,294.59,219.58,-25.0,-15.0,40.0,deep_left_lower,0.85,
+frame_0000,363.05,218.81,25.0,-15.0,40.0,deep_right_lower,0.85,
+frame_0000,363.63,257.25,25.0,15.0,40.0,deep_right_upper,0.80,
+frame_0000,295.13,257.95,-25.0,15.0,40.0,deep_left_upper,0.80,
+

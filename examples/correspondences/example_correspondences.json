@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "description": "Example sparse manual 2D-to-3D correspondences. Synthetic only; not clinical data.",
+  "coordinate_system": {
+    "pixel": "u right, v down, origin at top-left image pixel",
+    "point3d": "mesh coordinate frame, units inherited from mesh"
+  },
+  "correspondences": [
+    {
+      "image_id": "frame_0000",
+      "pixel": {"u": 288.8, "v": 211.34},
+      "point3d": {"x": -30.0, "y": -20.0, "z": 0.0},
+      "label": "left_lower_surface",
+      "confidence": 0.95
+    },
+    {
+      "image_id": "frame_0000",
+      "pixel": {"u": 371.54, "v": 210.27},
+      "point3d": {"x": 30.0, "y": -20.0, "z": 0.0},
+      "label": "right_lower_surface",
+      "confidence": 0.95
+    },
+    {
+      "image_id": "frame_0000",
+      "pixel": {"u": 372.28, "v": 265.57},
+      "point3d": {"x": 30.0, "y": 20.0, "z": 0.0},
+      "label": "right_upper_surface",
+      "confidence": 0.9
+    },
+    {
+      "image_id": "frame_0000",
+      "pixel": {"u": 289.48, "v": 266.54},
+      "point3d": {"x": -30.0, "y": 20.0, "z": 0.0},
+      "label": "left_upper_surface",
+      "confidence": 0.9
+    },
+    {
+      "image_id": "frame_0000",
+      "pixel": {"u": 294.59, "v": 219.58},
+      "point3d": {"x": -25.0, "y": -15.0, "z": 40.0},
+      "label": "deep_left_lower",
+      "confidence": 0.85
+    },
+    {
+      "image_id": "frame_0000",
+      "pixel": {"u": 363.05, "v": 218.81},
+      "point3d": {"x": 25.0, "y": -15.0, "z": 40.0},
+      "label": "deep_right_lower",
+      "confidence": 0.85
+    },
+    {
+      "image_id": "frame_0000",
+      "pixel": {"u": 363.63, "v": 257.25},
+      "point3d": {"x": 25.0, "y": 15.0, "z": 40.0},
+      "label": "deep_right_upper",
+      "confidence": 0.8
+    },
+    {
+      "image_id": "frame_0000",
+      "pixel": {"u": 295.13, "v": 257.95},
+      "point3d": {"x": -25.0, "y": 15.0, "z": 40.0},
+      "label": "deep_left_upper",
+      "confidence": 0.8
+    }
+  ]
+}
+

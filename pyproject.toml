@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "surgical-registration-prototype"
+version = "0.1.0"
+description = "Research prototype for 2D surgical image to 3D mesh registration with initial pose and deformable refinement."
+readme = "docs/README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy",
+  "Pillow",
+  "opencv-python",
+  "trimesh",
+  "gradio",
+]
+
+[project.optional-dependencies]
+models = [
+  "torch",
+]
+dev = [
+  "pytest",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pipeline*"]
+

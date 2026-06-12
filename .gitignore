@@ -1,0 +1,67 @@
+# Python caches and build outputs
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Local environments
+.venv/
+venv/
+env/
+.env
+!.env.example
+
+# Generated prototype outputs
+outputs/
+demo_outputs/
+runs/
+cache/
+.cache/
+tmp/
+temp/
+
+# Model checkpoints and heavyweight generated artifacts
+checkpoints/
+models/
+weights/
+*.ckpt
+*.pt
+*.pth
+*.safetensors
+*.onnx
+*.engine
+*.npz
+*.npy
+*.glb
+*.ply
+
+# Local media and clinical/research data dumps
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.dcm
+*.nii
+*.nii.gz
+
+# Legacy root-level external checkouts. Prefer Git submodules under external/.
+/vggt-omega/
+/Medical-SAM3/
+
+# Keep manual annotations/data outside the prototype Git history unless
+# deliberately curated into examples/.
+/manual-correspondences/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+

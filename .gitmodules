@@ -1,0 +1,8 @@
+[submodule "external/vggt-omega"]
+	path = external/vggt-omega
+	url = https://github.com/facebookresearch/vggt-omega.git
+
+[submodule "external/Medical-SAM3"]
+	path = external/Medical-SAM3
+	url = https://github.com/AIM-Research-Lab/Medical-SAM3.git
+

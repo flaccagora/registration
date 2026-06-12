@@ -1,0 +1,41 @@
+{
+  "medsam3": {
+    "repo_path": "external/Medical-SAM3",
+    "checkpoint_path": "",
+    "device": "cuda",
+    "confidence_threshold": 0.1
+  },
+  "vggt": {
+    "repo_path": "external/vggt-omega",
+    "checkpoint_path": "",
+    "device": "cuda",
+    "image_resolution": 512,
+    "cache": true
+  },
+  "initial_pose": {
+    "use_ransac": true,
+    "ransac_reprojection_error_px": 12.0,
+    "ransac_iterations": 200,
+    "estimate_intrinsics_if_missing": true,
+    "default_focal_length_px": null,
+    "allow_similarity_from_vggt_points": true
+  },
+  "deformable": {
+    "model": "rbf",
+    "regularization": 0.01,
+    "kernel_radius": null,
+    "max_control_points": 128,
+    "min_control_points": 3,
+    "min_control_weight": 0.000001,
+    "trim_outlier_controls": true,
+    "outlier_mad_multiplier": 4.0,
+    "max_control_displacement": null,
+    "segmentation_outside_weight": 0.25,
+    "chunk_size": 50000
+  },
+  "output": {
+    "output_dir": "outputs",
+    "save_intermediates": true,
+    "export_registered_mesh": true
+  }
+}
