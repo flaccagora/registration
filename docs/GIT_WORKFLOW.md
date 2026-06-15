@@ -1,8 +1,9 @@
 # Git Workflow
 
 This project should track the prototype source, docs, small examples, and
-configuration templates. External model repos, checkpoints, generated outputs,
-and clinical/research data should stay out of the prototype Git history.
+configuration templates. External model and annotation repos, checkpoints,
+generated outputs, and clinical/research data should stay out of the prototype
+Git history.
 
 ## First-Time Setup
 
@@ -76,4 +77,3 @@ git status --short
 - `.env` files with local paths or secrets.
 
 Use `.env.example` for documented environment variables.
-

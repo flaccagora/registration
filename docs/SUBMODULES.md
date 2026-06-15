@@ -1,10 +1,11 @@
 # Submodule Management
 
-The prototype expects upstream model repos under:
+The prototype expects upstream model and annotation repos under:
 
 ```text
 external/vggt-omega/
 external/Medical-SAM3/
+external/manual-correspondences/
 ```
 
 The upstream URLs are known and are recorded in the root `.gitmodules` file:
@@ -12,6 +13,7 @@ The upstream URLs are known and are recorded in the root `.gitmodules` file:
 ```text
 https://github.com/facebookresearch/vggt-omega.git
 https://github.com/AIM-Research-Lab/Medical-SAM3.git
+https://github.com/flaccagora/label.git
 ```
 
 The `.gitmodules` file records intended submodule URLs. The actual submodule
@@ -23,6 +25,7 @@ The current workspace may still contain legacy root-level checkouts:
 ```text
 vggt-omega/
 Medical-SAM3/
+manual-correspondences/
 ```
 
 The code prefers `external/...` paths but falls back to those legacy locations
@@ -30,25 +33,27 @@ when the external submodules have not been initialized yet.
 
 ## Convert Existing Root Checkouts To Submodules
 
-Run later, after committing or backing up any local changes inside the model
+Run later, after committing or backing up any local changes inside the external
 repos:
 
 ```bash
 mkdir -p external
 git submodule add https://github.com/facebookresearch/vggt-omega.git external/vggt-omega
 git submodule add https://github.com/AIM-Research-Lab/Medical-SAM3.git external/Medical-SAM3
+git submodule add https://github.com/flaccagora/label.git external/manual-correspondences
 git status
-git add .gitmodules external/vggt-omega external/Medical-SAM3
-git commit -m "chore: add model repos as submodules"
+git add .gitmodules external/vggt-omega external/Medical-SAM3 external/manual-correspondences
+git commit -m "chore: add external repos as submodules"
 ```
 
 If `git submodule add` reports that a `.gitmodules` entry already exists, check
 that the URL and path match this document, remove any duplicate entry Git added,
 then continue with the single correct entry.
 
-If root-level `vggt-omega/` and `Medical-SAM3/` already exist, do not `git add`
-them. They are ignored as legacy local checkouts. After the submodules work,
-archive or remove the root-level copies manually if they are no longer needed.
+If root-level `vggt-omega/`, `Medical-SAM3/`, and `manual-correspondences/`
+already exist, do not `git add` them. They are ignored as legacy local
+checkouts. After the submodules work, archive or remove the root-level copies
+manually if they are no longer needed.
 
 ## Clone With Submodules
 
@@ -77,7 +82,8 @@ git add external/vggt-omega
 git commit -m "chore: pin VGGT-Omega submodule"
 ```
 
-Repeat the same pattern for `external/Medical-SAM3`.
+Repeat the same pattern for `external/Medical-SAM3` and
+`external/manual-correspondences`.
 
 ## Update Submodules Safely
 

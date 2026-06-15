@@ -2,7 +2,7 @@
 
 The demo entrypoint is `app.py`. It was created but not launched.
 
-Run later after dependencies, model repos, and checkpoints are ready:
+Run later after dependencies, external repos, and checkpoints are ready:
 
 ```bash
 python app.py
@@ -39,10 +39,12 @@ Default repo paths come from `.env.example`:
 ```text
 VGGT_OMEGA_REPO=external/vggt-omega
 MEDICALSAM3_REPO=external/Medical-SAM3
+MANUAL_CORRESPONDENCES_REPO=external/manual-correspondences
 ```
 
 If these paths do not exist yet, the wrappers can fall back to legacy
-root-level `vggt-omega/` and `Medical-SAM3/` checkouts.
+root-level `vggt-omega/`, `Medical-SAM3/`, and `manual-correspondences/`
+checkouts.
 
 ## Buttons
 

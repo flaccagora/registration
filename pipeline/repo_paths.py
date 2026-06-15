@@ -1,4 +1,4 @@
-"""Repository path resolution for local external model checkouts."""
+"""Repository path resolution for local external checkouts."""
 
 from __future__ import annotations
 
@@ -8,20 +8,23 @@ from pathlib import Path
 PREFERRED_REPO_PATHS = {
     "vggt_omega": Path("external/vggt-omega"),
     "medicalsam3": Path("external/Medical-SAM3"),
+    "manual_correspondences": Path("external/manual-correspondences"),
 }
 
 LEGACY_REPO_PATHS = {
     "vggt_omega": Path("vggt-omega"),
     "medicalsam3": Path("Medical-SAM3"),
+    "manual_correspondences": Path("manual-correspondences"),
 }
 
 
 def resolve_repo_path(configured_path: str | Path, repo_key: str) -> Path:
     """Prefer the configured repo path, with legacy/default fallback.
 
-    The project now documents model repos as Git submodules under
-    ``external/``. Existing workspaces may still have root-level checkouts.
-    This helper lets both layouts work without hard-coding absolute paths.
+    The project now documents model and annotation repos as Git submodules
+    under ``external/``. Existing workspaces may still have root-level
+    checkouts. This helper lets both layouts work without hard-coding absolute
+    paths.
     """
 
     configured = Path(configured_path)
@@ -36,4 +39,3 @@ def resolve_repo_path(configured_path: str | Path, repo_key: str) -> Path:
         if candidate.exists():
             return candidate
     return configured
-

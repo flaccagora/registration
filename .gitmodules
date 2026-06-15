@@ -6,3 +6,6 @@
 	path = external/Medical-SAM3
 	url = https://github.com/AIM-Research-Lab/Medical-SAM3.git
 
+[submodule "external/manual-correspondences"]
+	path = external/manual-correspondences
+	url = https://github.com/flaccagora/label.git

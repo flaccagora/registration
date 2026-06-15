@@ -27,7 +27,14 @@ uv pip install -r requirements.txt
 uv pip install -e ".[train]"
 ```
 
+The `manual-correspondences` submodule is used for annotation workflows and
+normalized export schemas. Install it only if you need its command-line tools:
+
+```bash
+cd external/manual-correspondences
+uv pip install -e .
+```
+
 Do not commit `.venv/`, `uv.lock` churn from unrelated experiments, model
 checkpoints, or generated outputs unless the team explicitly decides to track a
 lockfile.
-

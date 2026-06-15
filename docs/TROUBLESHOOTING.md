@@ -100,11 +100,12 @@ outlier controls.
 Avoid hard-coding absolute paths in code. Use UI fields, config JSON, or command
 arguments. Relative paths are interpreted from the current working directory.
 
-The preferred model repo paths are:
+The preferred external repo paths are:
 
 ```text
 external/vggt-omega/
 external/Medical-SAM3/
+external/manual-correspondences/
 ```
 
 If submodules are missing, run:
@@ -113,6 +114,21 @@ If submodules are missing, run:
 git submodule update --init --recursive
 ```
 
-Legacy root-level checkouts `vggt-omega/` and `Medical-SAM3/` are still
-supported as fallbacks, but should not be committed into the prototype Git
-history.
+Legacy root-level checkouts `vggt-omega/`, `Medical-SAM3/`, and
+`manual-correspondences/` are still supported as fallbacks, but should not be
+committed into the prototype Git history.
+
+## Manual Correspondence Export Errors
+
+Symptoms:
+
+- `Could not resolve all manual-correspondences landmarks to 3D points`
+- `Raw Label Studio export detected`
+- `No correspondences were found`
+
+Fix:
+
+- Use the normalized registration export from `manual-correspondences`, not raw
+  Label Studio JSON.
+- Ensure every frame record has `ct_landmarks_path` or embedded `ct_landmarks`.
+- Ensure each landmark's `ct_landmark_id` exists in the CT landmark catalog.

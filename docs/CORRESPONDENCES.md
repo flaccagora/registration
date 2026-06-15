@@ -45,6 +45,9 @@ Full example: `examples/correspondences/example_correspondences.csv`.
 
 Full example: `examples/correspondences/example_correspondences.json`.
 
+Normalized `manual-correspondences` export example:
+`examples/correspondences/manual_correspondences_export.example.json`.
+
 ## Coordinate Conventions
 
 Pixels use image coordinates: `u` increases to the right, `v` increases down,
@@ -56,8 +59,49 @@ be meaningful.
 
 ## Existing Manual Correspondence Data
 
-The `manual-correspondences/` repository contains Label Studio workflows and
-registration annotation exports. The new prototype uses a simpler CSV/JSON
-schema first. A future adapter should convert the existing Label Studio export
-schema into this canonical correspondence format.
+The `external/manual-correspondences/` repository contains Label Studio
+workflows and normalized registration annotation exports. The pipeline can load
+those normalized export records directly when they include:
 
+- `frame_id`
+- `ct_landmarks_path` or embedded `ct_landmarks`
+- `landmarks` entries with `ct_landmark_id`, `image_x`, `image_y`, and
+  optional `confidence`
+
+Example normalized record:
+
+```json
+[
+  {
+    "frame_id": "case_000:10",
+    "ct_landmarks_path": "ct_landmarks.json",
+    "landmarks": [
+      {
+        "ct_landmark_id": "apex",
+        "image_x": 420.0,
+        "image_y": 180.0,
+        "confidence": 0.9
+      }
+    ]
+  }
+]
+```
+
+The referenced landmark catalog maps IDs to 3D mesh points:
+
+```json
+{
+  "landmarks": [
+    {
+      "id": "apex",
+      "point3d": [12.0, 84.0, 620.0]
+    }
+  ]
+}
+```
+
+`load_correspondences()` resolves these records into the canonical
+`image_id,u,v,x,y,z,label,confidence,weight` format used by initial pose
+registration and deformable refinement. Legacy root-level
+`manual-correspondences/` checkouts are still supported as a local workspace
+fallback, but should not be committed into this prototype repository.

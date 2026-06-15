@@ -12,6 +12,10 @@
     "image_resolution": 512,
     "cache": true
   },
+  "manual_correspondences": {
+    "repo_path": "external/manual-correspondences",
+    "data_dir": "external/manual-correspondences/examples"
+  },
   "initial_pose": {
     "use_ransac": true,
     "ransac_reprojection_error_px": 12.0,

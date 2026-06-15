@@ -42,6 +42,14 @@ class VGGTOmegaConfig:
 
 
 @dataclass
+class ManualCorrespondenceConfig:
+    """Locations for external annotation tooling and exported correspondence data."""
+
+    repo_path: Path = Path("external/manual-correspondences")
+    data_dir: Path | None = None
+
+
+@dataclass
 class InitialPoseConfig:
     """Options for sparse initial pose registration."""
 
@@ -85,6 +93,7 @@ class PipelineConfig:
 
     medsam3: MedicalSAM3Config = field(default_factory=MedicalSAM3Config)
     vggt: VGGTOmegaConfig = field(default_factory=VGGTOmegaConfig)
+    manual_correspondences: ManualCorrespondenceConfig = field(default_factory=ManualCorrespondenceConfig)
     initial_pose: InitialPoseConfig = field(default_factory=InitialPoseConfig)
     deformable: DeformableConfig = field(default_factory=DeformableConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
@@ -102,6 +111,7 @@ class PipelineConfig:
 
         medsam = payload.get("medsam3", {})
         vggt = payload.get("vggt", {})
+        manual = payload.get("manual_correspondences", {})
         pose = payload.get("initial_pose", {})
         deform = payload.get("deformable", {})
         output = payload.get("output", {})
@@ -118,6 +128,10 @@ class PipelineConfig:
                 device=vggt.get("device", "cuda"),
                 image_resolution=int(vggt.get("image_resolution", 512)),
                 cache=bool(vggt.get("cache", True)),
+            ),
+            manual_correspondences=ManualCorrespondenceConfig(
+                repo_path=Path(manual.get("repo_path", "external/manual-correspondences")),
+                data_dir=_path_or_none(manual.get("data_dir")),
             ),
             initial_pose=InitialPoseConfig(
                 use_ransac=bool(pose.get("use_ransac", True)),
@@ -176,6 +190,7 @@ class PipelineConfig:
         for section, keys in {
             "medsam3": ("repo_path", "checkpoint_path"),
             "vggt": ("repo_path", "checkpoint_path"),
+            "manual_correspondences": ("repo_path", "data_dir"),
             "output": ("output_dir",),
         }.items():
             for key in keys:

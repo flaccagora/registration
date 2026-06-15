@@ -1,7 +1,7 @@
 """Static repository layout checker.
 
 This script uses only the Python standard library. It does not import the
-prototype package, model repositories, Gradio, torch, OpenCV, or any heavy
+prototype package, external repositories, Gradio, torch, OpenCV, or any heavy
 dependencies.
 """
 
@@ -39,11 +39,13 @@ EXPECTED_FILES = [
 EXPECTED_SUBMODULES = {
     "external/vggt-omega": "https://github.com/facebookresearch/vggt-omega.git",
     "external/Medical-SAM3": "https://github.com/AIM-Research-Lab/Medical-SAM3.git",
+    "external/manual-correspondences": "https://github.com/flaccagora/label.git",
 }
 
 LEGACY_REPOS = [
     "vggt-omega",
     "Medical-SAM3",
+    "manual-correspondences",
 ]
 
 
