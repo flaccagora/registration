@@ -9,3 +9,4 @@
 [submodule "external/manual-correspondences"]
 	path = external/manual-correspondences
 	url = https://github.com/flaccagora/label
+	branch = main
