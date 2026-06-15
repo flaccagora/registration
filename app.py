@@ -46,33 +46,122 @@ CLINICAL_WARNING = (
     "navigation, or patient care."
 )
 
-DEFAULT_VGGT_REPO = os.environ.get("VGGT_OMEGA_REPO", "external/vggt-omega")
-DEFAULT_MEDICALSAM3_REPO = os.environ.get("MEDICALSAM3_REPO", "external/Medical-SAM3")
+VGGT_OMEGA_REPO = os.environ.get("VGGT_OMEGA_REPO", "external/vggt-omega")
+MEDICALSAM3_REPO = os.environ.get("MEDICALSAM3_REPO", "external/Medical-SAM3")
 DEFAULT_OUTPUT_DIR = os.environ.get("REGISTRATION_OUTPUT_DIR", "outputs")
-DEFAULT_VGGT_CHECKPOINT = os.environ.get("VGGT_OMEGA_CHECKPOINT", "")
-DEFAULT_MEDICALSAM3_CHECKPOINT = os.environ.get("MEDICALSAM3_CHECKPOINT", "")
+VGGT_OMEGA_CHECKPOINT = os.environ.get("VGGT_OMEGA_CHECKPOINT", "")
+MEDICALSAM3_CHECKPOINT = os.environ.get("MEDICALSAM3_CHECKPOINT", "")
 
+from dotenv import load_dotenv
+
+load_dotenv()  # reads .env and populates os.environ
 
 def _error_payload(exc: Exception) -> str:
     return f"Error: {exc}\n\n{traceback.format_exc(limit=2)}"
 
 
 def _parse_point(text: str | None) -> tuple[float, float] | None:
-    if not text:
-        return None
-    values = [float(part.strip()) for part in text.replace(";", ",").split(",") if part.strip()]
-    if len(values) != 2:
-        raise ValueError("Point prompt must be 'u,v'.")
-    return values[0], values[1]
+    points = _parse_points(text)
+    return points[0] if points else None
 
 
 def _parse_box(text: str | None) -> tuple[float, float, float, float] | None:
+    boxes = _parse_boxes(text)
+    return boxes[0] if boxes else None
+
+
+def _parse_points(text: str | None) -> list[tuple[float, float]]:
+    return [tuple(values) for values in _parse_prompt_rows(text, 2, "Point prompt must be 'u,v'.")]
+
+
+def _parse_boxes(text: str | None) -> list[tuple[float, float, float, float]]:
+    return [tuple(values) for values in _parse_prompt_rows(text, 4, "Box prompt must be 'x_min,y_min,x_max,y_max'.")]
+
+
+def _parse_prompt_rows(text: str | None, expected_count: int, error_message: str) -> list[list[float]]:
     if not text:
-        return None
-    values = [float(part.strip()) for part in text.replace(";", ",").split(",") if part.strip()]
-    if len(values) != 4:
-        raise ValueError("Box prompt must be 'x_min,y_min,x_max,y_max'.")
-    return values[0], values[1], values[2], values[3]
+        return []
+    rows: list[list[float]] = []
+    for line in str(text).splitlines():
+        cleaned = line.strip()
+        if not cleaned:
+            continue
+        values = [float(part.strip()) for part in cleaned.replace(";", ",").split(",") if part.strip()]
+        if len(values) != expected_count:
+            raise ValueError(error_message)
+        rows.append(values)
+    return rows
+
+
+def _format_points(points: list[tuple[float, float]]) -> str:
+    return "\n".join(f"{x:.1f},{y:.1f}" for x, y in points)
+
+
+def _format_boxes(boxes: list[tuple[float, float, float, float]]) -> str:
+    return "\n".join(f"{x0:.1f},{y0:.1f},{x1:.1f},{y1:.1f}" for x0, y0, x1, y1 in boxes)
+
+
+def _empty_prompt_state(image_path: str | None = None) -> dict[str, Any]:
+    return {"image_path": image_path, "points": [], "boxes": [], "box_start": None, "version": 0}
+
+
+def _coerce_prompt_state(state: dict[str, Any] | None, image_path: str | None = None) -> dict[str, Any]:
+    merged = _empty_prompt_state(image_path or (state or {}).get("image_path"))
+    if state:
+        merged.update(state)
+    if image_path:
+        merged["image_path"] = image_path
+    merged["points"] = [tuple(point) for point in merged.get("points", [])]
+    merged["boxes"] = [tuple(box) for box in merged.get("boxes", [])]
+    box_start = merged.get("box_start")
+    merged["box_start"] = tuple(box_start) if box_start is not None else None
+    return merged
+
+
+def _draw_segmentation_prompt_overlay(image_path: str | Path, state: dict[str, Any], output_dir: str | Path) -> str:
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError as exc:
+        raise RuntimeError("Pillow is required to draw segmentation prompts.") from exc
+
+    image = Image.open(image_path).convert("RGB")
+    draw = ImageDraw.Draw(image)
+    width, height = image.size
+    line_width = max(2, int(round(max(width, height) / 300)))
+    point_radius = max(5, int(round(max(width, height) / 120)))
+
+    for box in state.get("boxes", []):
+        x0, y0, x1, y1 = box
+        draw.rectangle((x0, y0, x1, y1), outline=(255, 194, 10), width=line_width)
+
+    if state.get("box_start") is not None:
+        x, y = state["box_start"]
+        draw.line((x - point_radius, y, x + point_radius, y), fill=(255, 194, 10), width=line_width)
+        draw.line((x, y - point_radius, x, y + point_radius), fill=(255, 194, 10), width=line_width)
+
+    for point in state.get("points", []):
+        x, y = point
+        draw.ellipse((x - point_radius, y - point_radius, x + point_radius, y + point_radius), outline=(20, 210, 130), width=line_width)
+        draw.line((x - point_radius, y, x + point_radius, y), fill=(20, 210, 130), width=line_width)
+        draw.line((x, y - point_radius, x, y + point_radius), fill=(20, 210, 130), width=line_width)
+
+    target_dir = ensure_dir(output_dir)
+    version = int(state.get("version", 0))
+    target = target_dir / f"{Path(image_path).stem}_segmentation_prompts_{version:04d}.png"
+    image.save(target)
+    return str(target)
+
+
+def _event_xy(evt: Any) -> tuple[float, float]:
+    index = getattr(evt, "index", None)
+    if isinstance(index, dict):
+        if "x" in index and "y" in index:
+            return float(index["x"]), float(index["y"])
+        if "left" in index and "top" in index:
+            return float(index["left"]), float(index["top"])
+    if isinstance(index, (list, tuple)) and len(index) >= 2:
+        return float(index[0]), float(index[1])
+    raise ValueError("Could not read clicked image coordinates from the Gradio selection event.")
 
 
 def _prepare_image_paths(
@@ -139,11 +228,15 @@ def run_segmentation_ui(
         image_paths = _prepare_image_paths(image_file, image_sequence, video_file, output_dir, video_sample_fps)
         first_image = image_paths[0]
         prompt_kind = str(prompt_type).lower().strip()
+        points = _parse_points(point_prompt) if prompt_kind == "point" else []
+        boxes = _parse_boxes(box_prompt) if prompt_kind == "box" else []
         prompt = SegmentationPrompt(
             prompt_type=prompt_kind,
             text=(text_prompt or None) if prompt_kind == "text" else None,
-            point=_parse_point(point_prompt) if prompt_kind == "point" else None,
-            box=_parse_box(box_prompt) if prompt_kind == "box" else None,
+            point=points[0] if len(points) == 1 else None,
+            points=points or None,
+            box=boxes[0] if len(boxes) == 1 else None,
+            boxes=boxes or None,
             mask_path=Path(file_path(mask_prompt_file)) if prompt_kind == "mask" and mask_prompt_file else None,
         )
         segmenter = MedicalSAM3Segmenter(
@@ -158,6 +251,93 @@ def run_segmentation_ui(
         return str(result.overlay_path), str(result.mask_png_path), status, state
     except Exception as exc:
         return None, None, _error_payload(exc), None
+
+
+def load_segmentation_prompt_image_ui(
+    image_file,
+    image_sequence,
+    video_file,
+    video_sample_fps,
+    output_dir,
+):
+    """Load the first input image into the interactive prompt picker."""
+
+    try:
+        image_paths = _prepare_image_paths(image_file, image_sequence, video_file, output_dir, video_sample_fps)
+        first_image = image_paths[0]
+        state = _empty_prompt_state(str(first_image))
+        preview = _draw_segmentation_prompt_overlay(first_image, state, Path(output_dir) / "segmentation_prompts")
+        status = f"Loaded {first_image.name}. In point mode, click to add points. In box mode, click two opposite corners."
+        return preview, "", "", status, state
+    except Exception as exc:
+        return None, "", "", _error_payload(exc), _empty_prompt_state()
+
+
+def clear_segmentation_prompts_ui(segmentation_prompt_state, output_dir):
+    """Clear interactive prompt selections while keeping the loaded image."""
+
+    try:
+        state = _coerce_prompt_state(segmentation_prompt_state)
+        image_path = state.get("image_path")
+        state = _empty_prompt_state(image_path)
+        if not image_path:
+            return None, "", "", "Interactive segmentation prompts cleared.", state
+        preview = _draw_segmentation_prompt_overlay(image_path, state, Path(output_dir) / "segmentation_prompts")
+        return preview, "", "", "Interactive segmentation prompts cleared.", state
+    except Exception as exc:
+        return None, "", "", _error_payload(exc), _empty_prompt_state()
+
+
+def select_segmentation_prompt_ui(
+    prompt_selection_mode,
+    image_file,
+    image_sequence,
+    video_file,
+    video_sample_fps,
+    output_dir,
+    segmentation_prompt_state,
+    evt: gr.SelectData,
+):
+    """Convert image clicks into point or two-corner box segmentation prompts."""
+
+    try:
+        state = _coerce_prompt_state(segmentation_prompt_state)
+        if not state.get("image_path"):
+            image_paths = _prepare_image_paths(image_file, image_sequence, video_file, output_dir, video_sample_fps)
+            state = _coerce_prompt_state(state, str(image_paths[0]))
+        image_path = state["image_path"]
+        image = load_rgb_image(image_path)
+        height, width = image.shape[:2]
+        x, y = _event_xy(evt)
+        x = min(max(float(x), 0.0), float(width - 1))
+        y = min(max(float(y), 0.0), float(height - 1))
+        mode = str(prompt_selection_mode or "point").lower().strip()
+
+        if mode == "box":
+            if state.get("box_start") is None:
+                state["box_start"] = (x, y)
+                status = f"Box start set at ({x:.1f}, {y:.1f}). Click the opposite corner."
+                prompt_type = "box"
+            else:
+                x0, y0 = state["box_start"]
+                box = (min(x0, x), min(y0, y), max(x0, x), max(y0, y))
+                if box[2] <= box[0] or box[3] <= box[1]:
+                    raise ValueError("Box prompt must cover a non-empty image region.")
+                state["boxes"].append(box)
+                state["box_start"] = None
+                status = f"Added box {len(state['boxes'])}: {box[0]:.1f},{box[1]:.1f},{box[2]:.1f},{box[3]:.1f}."
+                prompt_type = "box"
+        else:
+            state["points"].append((x, y))
+            state["box_start"] = None
+            status = f"Added point {len(state['points'])}: {x:.1f},{y:.1f}."
+            prompt_type = "point"
+
+        state["version"] = int(state.get("version", 0)) + 1
+        preview = _draw_segmentation_prompt_overlay(image_path, state, Path(output_dir) / "segmentation_prompts")
+        return preview, _format_points(state["points"]), _format_boxes(state["boxes"]), prompt_type, status, state
+    except Exception as exc:
+        return None, "", "", str(prompt_selection_mode or "point").lower(), _error_payload(exc), segmentation_prompt_state
 
 
 def run_vggt_ui(
@@ -380,6 +560,7 @@ def build_demo():
         gr.Markdown(f"**Warning:** {CLINICAL_WARNING}")
 
         segmentation_state = gr.State(None)
+        segmentation_prompt_state = gr.State(_empty_prompt_state())
         vggt_state = gr.State(None)
         initial_pose_state = gr.State(None)
         deformable_state = gr.State(None)
@@ -397,10 +578,10 @@ def build_demo():
                 image_id_filter = gr.Textbox(label="Optional image/frame id filter", placeholder="frame_0000")
 
                 with gr.Accordion("Runtime paths and model settings", open=False):
-                    medsam_repo = gr.Textbox(label="MedicalSAM3 repo path", value=DEFAULT_MEDICALSAM3_REPO)
-                    medsam_checkpoint = gr.Textbox(label="MedicalSAM3 checkpoint path", value=DEFAULT_MEDICALSAM3_CHECKPOINT)
-                    vggt_repo = gr.Textbox(label="VGGT-Omega repo path", value=DEFAULT_VGGT_REPO)
-                    vggt_checkpoint = gr.Textbox(label="VGGT-Omega checkpoint path", value=DEFAULT_VGGT_CHECKPOINT)
+                    medsam_repo = gr.Textbox(label="MedicalSAM3 repo path", value=MEDICALSAM3_REPO)
+                    medsam_checkpoint = gr.Textbox(label="MedicalSAM3 checkpoint path", value=MEDICALSAM3_CHECKPOINT)
+                    vggt_repo = gr.Textbox(label="VGGT-Omega repo path", value=VGGT_OMEGA_REPO)
+                    vggt_checkpoint = gr.Textbox(label="VGGT-Omega checkpoint path", value=VGGT_OMEGA_CHECKPOINT)
                     device = gr.Dropdown(label="Device", choices=["cuda", "cpu"], value="cuda")
                     image_resolution = gr.Dropdown(label="VGGT image resolution", choices=[256, 512], value=512)
                     output_dir = gr.Textbox(label="Output directory", value=DEFAULT_OUTPUT_DIR)
@@ -408,9 +589,15 @@ def build_demo():
             with gr.Column(scale=1):
                 gr.Markdown("## MedicalSAM3 Segmentation")
                 prompt_type = gr.Dropdown(label="Prompt type", choices=["text", "point", "box", "mask"], value="text")
-                text_prompt = gr.Textbox(label="Text prompt", value="target anatomy or surgical region")
-                point_prompt = gr.Textbox(label="Point prompt u,v", placeholder="320,240")
-                box_prompt = gr.Textbox(label="Box prompt x_min,y_min,x_max,y_max", placeholder="100,80,420,360")
+                text_prompt = gr.Textbox(label="Text prompt", value="lung anatomy")
+                prompt_selection_mode = gr.Radio(label="Interactive prompt tool", choices=["point", "box"], value="point")
+                with gr.Row():
+                    load_prompt_image = gr.Button("Load prompt image")
+                    clear_prompt_marks = gr.Button("Clear prompts")
+                prompt_canvas = gr.Image(label="Click image to add segmentation prompts", type="filepath", height=360, interactive=False)
+                prompt_selection_status = gr.Textbox(label="Interactive prompt status", lines=2)
+                point_prompt = gr.Textbox(label="Point prompt(s) u,v", placeholder="320,240")
+                box_prompt = gr.Textbox(label="Box prompt(s) x_min,y_min,x_max,y_max", placeholder="100,80,420,360")
                 mask_prompt_file = gr.File(label="Existing mask prompt", file_types=[".png", ".jpg", ".jpeg", ".npy"])
                 run_segmentation = gr.Button("Run segmentation")
                 segmentation_overlay_output = gr.Image(label="Segmentation overlay", type="filepath")
@@ -447,6 +634,35 @@ def build_demo():
                 result_bundle = gr.File(label="Result bundle ZIP")
                 export_status = gr.Textbox(label="Export status", lines=3)
 
+        load_prompt_image.click(
+            load_segmentation_prompt_image_ui,
+            inputs=[
+                image_file,
+                image_sequence,
+                video_file,
+                video_sample_fps,
+                output_dir,
+            ],
+            outputs=[prompt_canvas, point_prompt, box_prompt, prompt_selection_status, segmentation_prompt_state],
+        )
+        clear_prompt_marks.click(
+            clear_segmentation_prompts_ui,
+            inputs=[segmentation_prompt_state, output_dir],
+            outputs=[prompt_canvas, point_prompt, box_prompt, prompt_selection_status, segmentation_prompt_state],
+        )
+        prompt_canvas.select(
+            select_segmentation_prompt_ui,
+            inputs=[
+                prompt_selection_mode,
+                image_file,
+                image_sequence,
+                video_file,
+                video_sample_fps,
+                output_dir,
+                segmentation_prompt_state,
+            ],
+            outputs=[prompt_canvas, point_prompt, box_prompt, prompt_type, prompt_selection_status, segmentation_prompt_state],
+        )
         run_segmentation.click(
             run_segmentation_ui,
             inputs=[

@@ -9,7 +9,9 @@ later stages can be rerun without repeating expensive inference.
 - 3D mesh file: `.obj`, `.ply`, or `.stl`.
 - Manual correspondence CSV or JSON.
 - Optional camera intrinsics JSON.
-- Optional segmentation prompt: text, point, box, or mask.
+- Optional segmentation prompt: text, point, box, or mask. Point and box
+  prompts can be typed manually or selected interactively on the first input
+  image in the Gradio demo.
 - VGGT-Omega checkpoint path when running depth/camera estimation.
 - MedicalSAM3 checkpoint path when running local segmentation with explicit
   weights.
@@ -44,6 +46,12 @@ Outputs:
 
 Masks can filter correspondences or downweight correspondences outside the
 target anatomy.
+
+The Gradio app includes an interactive prompt picker for additional
+segmentation input. Load the prompt image, choose the point or box tool, then
+click the image. Points are added with one click. Boxes are added by clicking
+two opposite corners. Multiple selected points or boxes are passed to the
+segmentation wrapper and the resulting MedicalSAM3 masks are unioned.
 
 ## Stage 4: VGGT-Omega Depth and Camera
 

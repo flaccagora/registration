@@ -27,7 +27,9 @@ class SegmentationPrompt:
     prompt_type: str = "text"
     text: str | None = None
     point: tuple[float, float] | None = None
+    points: list[tuple[float, float]] | None = None
     box: tuple[float, float, float, float] | None = None
+    boxes: list[tuple[float, float, float, float]] | None = None
     mask_path: Path | None = None
 
 
@@ -133,8 +135,9 @@ class MedicalSAM3Segmenter:
         """Segment an image and save mask artifacts.
 
         Supported direct MedicalSAM3 prompts are text and box. Point prompts are
-        converted into a small box around the point. Mask prompts bypass model
-        inference and are copied into the standard output format.
+        converted into small boxes around each point. Multiple point or box
+        prompts are evaluated independently and unioned. Mask prompts bypass
+        model inference and are copied into the standard output format.
         """
 
         image = load_rgb_image(image_path)
@@ -157,24 +160,33 @@ class MedicalSAM3Segmenter:
                 mask = model.predict_text(inference_state, prompt.text)
                 metadata = {"method": "medicalsam3_text", "prompt_type": "text", "text": prompt.text}
             elif prompt_type == "box":
-                if prompt.box is None:
+                boxes = prompt.boxes or ([prompt.box] if prompt.box is not None else [])
+                if not boxes:
                     raise InvalidInputError("Box prompt selected but no box was provided.")
-                box = tuple(int(round(value)) for value in prompt.box)
-                mask = model.predict_box(inference_state, box, (height, width))
-                metadata = {"method": "medicalsam3_box", "prompt_type": "box", "box": list(box)}
+                int_boxes = [_normalize_box(box, width, height) for box in boxes]
+                mask = _union_box_predictions(model, inference_state, int_boxes, (height, width))
+                metadata = {
+                    "method": "medicalsam3_box" if len(int_boxes) == 1 else "medicalsam3_boxes_union",
+                    "prompt_type": "box",
+                    "box": list(int_boxes[0]) if len(int_boxes) == 1 else None,
+                    "boxes": [list(box) for box in int_boxes],
+                }
             elif prompt_type == "point":
-                if prompt.point is None:
+                points = prompt.points or ([prompt.point] if prompt.point is not None else [])
+                if not points:
                     raise InvalidInputError("Point prompt selected but no point was provided.")
-                x, y = prompt.point
                 radius = max(12, int(round(0.03 * max(width, height))))
-                box = (
-                    max(0, int(round(x - radius))),
-                    max(0, int(round(y - radius))),
-                    min(width - 1, int(round(x + radius))),
-                    min(height - 1, int(round(y + radius))),
-                )
-                mask = model.predict_box(inference_state, box, (height, width))
-                metadata = {"method": "medicalsam3_point_as_box", "prompt_type": "point", "point": [x, y], "box": list(box)}
+                boxes = [_box_around_point(point, radius, width, height) for point in points]
+                mask = _union_box_predictions(model, inference_state, boxes, (height, width))
+                point_values = [[float(x), float(y)] for x, y in points]
+                metadata = {
+                    "method": "medicalsam3_point_as_box" if len(boxes) == 1 else "medicalsam3_points_as_boxes_union",
+                    "prompt_type": "point",
+                    "point": point_values[0] if len(point_values) == 1 else None,
+                    "points": point_values,
+                    "box": list(boxes[0]) if len(boxes) == 1 else None,
+                    "boxes": [list(box) for box in boxes],
+                }
             else:
                 raise InvalidInputError(f"Unsupported segmentation prompt type: {prompt.prompt_type}")
             if mask is None:
@@ -215,3 +227,46 @@ def _resize_binary_mask(mask: np.ndarray, target_shape: tuple[int, int]) -> np.n
     target_height, target_width = target_shape
     resized = Image.fromarray(mask_array).resize((target_width, target_height), Image.NEAREST)
     return (np.asarray(resized) > 127).astype(np.uint8)
+
+
+def _box_around_point(point: tuple[float, float], radius: int, width: int, height: int) -> tuple[int, int, int, int]:
+    x, y = point
+    return (
+        max(0, int(round(x - radius))),
+        max(0, int(round(y - radius))),
+        min(width - 1, int(round(x + radius))),
+        min(height - 1, int(round(y + radius))),
+    )
+
+
+def _normalize_box(box: tuple[float, float, float, float], width: int, height: int) -> tuple[int, int, int, int]:
+    x0, y0, x1, y1 = (float(value) for value in box)
+    left = max(0, min(width - 1, int(round(min(x0, x1)))))
+    top = max(0, min(height - 1, int(round(min(y0, y1)))))
+    right = max(0, min(width - 1, int(round(max(x0, x1)))))
+    bottom = max(0, min(height - 1, int(round(max(y0, y1)))))
+    if right <= left or bottom <= top:
+        raise InvalidInputError("Box prompt must cover a non-empty image region.")
+    return left, top, right, bottom
+
+
+def _union_box_predictions(
+    model: Any,
+    inference_state: dict[str, Any],
+    boxes: list[tuple[int, int, int, int]],
+    image_size: tuple[int, int],
+) -> np.ndarray | None:
+    union_mask: np.ndarray | None = None
+    for box in boxes:
+        prediction = model.predict_box(inference_state, box, image_size)
+        if prediction is None:
+            continue
+        prediction_array = np.asarray(prediction)
+        if prediction_array.shape[:2] != image_size:
+            prediction_array = _resize_binary_mask(prediction_array, image_size)
+        prediction_array = prediction_array > 0
+        if union_mask is None:
+            union_mask = prediction_array
+        else:
+            union_mask = union_mask | prediction_array
+    return union_mask.astype(np.uint8) if union_mask is not None else None
