@@ -1,0 +1,20 @@
+{
+  "landmarks": [
+    {
+      "id": "apex",
+      "description": "Synthetic apex landmark for loader compatibility checks",
+      "point3d": [-30.0, -20.0, 0.0]
+    },
+    {
+      "id": "hilum_landmark",
+      "description": "Synthetic hilum landmark for loader compatibility checks",
+      "point3d": [30.0, -20.0, 0.0]
+    },
+    {
+      "id": "lung_surface_marker",
+      "description": "Synthetic surface landmark for loader compatibility checks",
+      "point3d": [30.0, 20.0, 0.0]
+    }
+  ]
+}
+

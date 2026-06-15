@@ -1,0 +1,36 @@
+[
+  {
+    "frame_id": "frame_0000",
+    "image_width": 640,
+    "image_height": 480,
+    "ct_landmarks_path": "manual_ct_landmarks.example.json",
+    "landmarks": [
+      {
+        "ct_landmark_id": "apex",
+        "image_x": 288.8,
+        "image_y": 211.34,
+        "confidence": 0.95,
+        "source": "manual"
+      },
+      {
+        "ct_landmark_id": "hilum_landmark",
+        "image_x": 371.54,
+        "image_y": 210.27,
+        "confidence": 0.9,
+        "source": "manual"
+      },
+      {
+        "ct_landmark_id": "lung_surface_marker",
+        "image_x": 372.28,
+        "image_y": 265.57,
+        "confidence": 0.85,
+        "source": "manual"
+      }
+    ],
+    "visibility_labels": [],
+    "masks": [],
+    "pseudo_labels": [],
+    "confidence_scores": {}
+  }
+]
+

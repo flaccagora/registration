@@ -84,6 +84,13 @@ def _point3d_from_record(record: dict[str, Any]) -> tuple[float, float, float]:
     return float(x), float(y), float(z)
 
 
+def _direct_point3d_from_record(record: dict[str, Any]) -> tuple[float, float, float] | None:
+    try:
+        return _point3d_from_record(record)
+    except (KeyError, TypeError, ValueError, InvalidInputError):
+        return None
+
+
 def correspondence_from_record(record: dict[str, Any], default_image_id: str = "frame_0000") -> Correspondence:
     """Normalize a dictionary into the canonical correspondence dataclass."""
 
@@ -106,7 +113,13 @@ def correspondence_from_record(record: dict[str, Any], default_image_id: str = "
 
 
 def load_correspondences(path: str | Path, default_image_id: str = "frame_0000") -> list[Correspondence]:
-    """Load correspondences from CSV or JSON."""
+    """Load correspondences from CSV, canonical JSON, or manual-correspondences JSON.
+
+    The `manual-correspondences` registration export stores 2D landmark pixels
+    by `ct_landmark_id` and references 3D points through `ct_landmarks_path`.
+    This loader resolves that catalog so those exports become canonical
+    `Correspondence` rows for the registration pipeline.
+    """
 
     source = Path(path)
     if not source.exists():
@@ -118,7 +131,7 @@ def load_correspondences(path: str | Path, default_image_id: str = "frame_0000")
     elif suffix == ".json":
         payload = json.loads(source.read_text(encoding="utf-8"))
         if isinstance(payload, dict):
-            rows = payload.get("correspondences") or payload.get("points") or payload.get("data")
+            rows = payload.get("correspondences") or payload.get("points") or payload.get("records") or payload.get("data")
         else:
             rows = payload
         if not isinstance(rows, list):
@@ -126,6 +139,17 @@ def load_correspondences(path: str | Path, default_image_id: str = "frame_0000")
     else:
         raise InvalidInputError("Correspondence file must be .csv or .json")
     rows = [row for row in rows if _record_has_content(row)]
+    if suffix == ".json" and _looks_like_manual_correspondence_export(rows):
+        correspondences = correspondences_from_manual_export_records(rows, source.parent)
+        validate_correspondences(correspondences)
+        return correspondences
+    if suffix == ".json" and _looks_like_raw_label_studio_export(rows):
+        raise InvalidInputError(
+            "Raw Label Studio export detected. Convert it with the "
+            "manual-correspondences parser first, then pass the normalized "
+            "registration export containing frame_id, landmarks, and "
+            "ct_landmarks_path."
+        )
     correspondences = [correspondence_from_record(row, default_image_id=default_image_id) for row in rows]
     validate_correspondences(correspondences)
     return correspondences
@@ -135,6 +159,168 @@ def _record_has_content(record: Any) -> bool:
     if not isinstance(record, dict):
         return record is not None
     return any(value is not None and str(value).strip() != "" for value in record.values())
+
+
+def _looks_like_manual_correspondence_export(rows: list[Any]) -> bool:
+    """Return true for normalized manual-correspondences registration records."""
+
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        has_landmark_records = isinstance(row.get("landmarks"), list) or isinstance(row.get("pseudo_labels"), list)
+        has_direct_3d = _direct_point3d_from_record(row) is not None
+        if has_landmark_records and not has_direct_3d:
+            return True
+    return False
+
+
+def _looks_like_raw_label_studio_export(rows: list[Any]) -> bool:
+    """Return true for raw Label Studio task exports before normalization."""
+
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        has_task_data = isinstance(row.get("data"), dict)
+        has_annotations = isinstance(row.get("annotations"), list) or isinstance(row.get("completions"), list)
+        if has_task_data and has_annotations:
+            return True
+    return False
+
+
+def correspondences_from_manual_export_records(records: list[dict[str, Any]], base_dir: str | Path | None = None) -> list[Correspondence]:
+    """Convert `manual-correspondences` normalized exports to canonical rows.
+
+    Expected record shape is the output of
+    `surgvu_annotator.registration.parse_registration_label_studio_export`:
+    each frame record has `frame_id`, `landmarks`, and usually
+    `ct_landmarks_path`. Landmark IDs are resolved against that 3D landmark
+    catalog.
+    """
+
+    base = Path(base_dir or ".")
+    correspondences: list[Correspondence] = []
+    unresolved: list[str] = []
+    for record_index, record in enumerate(records):
+        if not isinstance(record, dict):
+            continue
+        image_id = str(record.get("frame_id") or record.get("image_id") or f"record_{record_index:04d}")
+        catalog = _landmark_catalog_from_record(record, base)
+        for landmark in _iter_manual_landmark_records(record):
+            if not isinstance(landmark, dict):
+                continue
+            landmark_id = landmark.get("ct_landmark_id") or landmark.get("landmark_id") or landmark.get("label")
+            if landmark_id is None:
+                unresolved.append(f"{image_id}: landmark without ct_landmark_id")
+                continue
+            point = _point3d_from_manual_landmark(landmark)
+            if point is None:
+                point = catalog.get(str(landmark_id))
+            if point is None:
+                unresolved.append(f"{image_id}: {landmark_id}")
+                continue
+            u, v = _pixel_from_record(landmark)
+            confidence = _as_float(landmark, ("confidence", "score"), required=False, default=1.0)
+            weight_value = _as_float(landmark, ("weight",), required=False, default=None)
+            correspondences.append(
+                Correspondence(
+                    image_id=image_id,
+                    u=float(u),
+                    v=float(v),
+                    x=float(point[0]),
+                    y=float(point[1]),
+                    z=float(point[2]),
+                    label=str(landmark_id),
+                    confidence=float(confidence if confidence is not None else 1.0),
+                    weight=float(weight_value) if weight_value is not None else None,
+                )
+            )
+    if unresolved:
+        sample = "; ".join(unresolved[:8])
+        raise InvalidInputError(
+            "Could not resolve all manual-correspondences landmarks to 3D points. "
+            "Ensure each record has a valid ct_landmarks_path or embedded point3d. "
+            f"Unresolved examples: {sample}"
+        )
+    return correspondences
+
+
+def _iter_manual_landmark_records(record: dict[str, Any]) -> list[dict[str, Any]]:
+    landmarks = [item for item in record.get("landmarks") or [] if isinstance(item, dict)]
+    for pseudo in record.get("pseudo_labels") or []:
+        if isinstance(pseudo, dict) and pseudo.get("type") == "correspondence":
+            landmarks.append(pseudo)
+    return landmarks
+
+
+def _landmark_catalog_from_record(record: dict[str, Any], base_dir: Path) -> dict[str, np.ndarray]:
+    embedded = record.get("ct_landmarks") or record.get("landmark_catalog")
+    if embedded is not None:
+        return _parse_landmark_catalog(embedded)
+    path_value = record.get("ct_landmarks_path")
+    if not path_value:
+        return {}
+    path = _resolve_catalog_path(path_value, base_dir)
+    if path is None:
+        return {}
+    return _parse_landmark_catalog(json.loads(path.read_text(encoding="utf-8")))
+
+
+def _resolve_catalog_path(path_value: Any, base_dir: Path) -> Path | None:
+    path = Path(str(path_value))
+    candidates = [path] if path.is_absolute() else [base_dir / path, Path.cwd() / path, path]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _parse_landmark_catalog(payload: Any) -> dict[str, np.ndarray]:
+    if isinstance(payload, dict) and isinstance(payload.get("landmarks"), list):
+        payload = payload["landmarks"]
+
+    catalog: dict[str, np.ndarray] = {}
+    if isinstance(payload, dict):
+        for landmark_id, value in payload.items():
+            point = _point3d_like_value(value)
+            if point is not None:
+                catalog[str(landmark_id)] = point
+    elif isinstance(payload, list):
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+            landmark_id = item.get("id") or item.get("name") or item.get("label") or item.get("ct_landmark_id")
+            point = _point3d_like_value(item)
+            if landmark_id is not None and point is not None:
+                catalog[str(landmark_id)] = point
+    return catalog
+
+
+def _point3d_like_value(value: Any) -> np.ndarray | None:
+    """Parse common 3D point shapes used by canonical and annotation exports."""
+
+    point = value
+    if isinstance(value, dict):
+        for key in ("point3d", "mesh_point", "world_point", "surface_point", "position_mm", "xyz"):
+            nested = value.get(key)
+            if nested is not None:
+                point = nested
+                break
+        else:
+            if all(axis in value for axis in ("x", "y", "z")):
+                point = [value["x"], value["y"], value["z"]]
+            else:
+                return None
+    try:
+        array = np.asarray(point, dtype=np.float64).reshape(-1)
+    except (TypeError, ValueError):
+        return None
+    if array.size != 3 or not np.all(np.isfinite(array)):
+        return None
+    return array
+
+
+def _point3d_from_manual_landmark(landmark: dict[str, Any]) -> np.ndarray | None:
+    return _point3d_like_value(landmark)
 
 
 def save_correspondences(correspondences: Iterable[Correspondence], path: str | Path) -> Path:

@@ -7,7 +7,8 @@ later stages can be rerun without repeating expensive inference.
 
 - Primary image, image sequence, or video.
 - 3D mesh file: `.obj`, `.ply`, or `.stl`.
-- Manual correspondence CSV or JSON.
+- Manual correspondence CSV/JSON, including normalized exports from
+  `external/manual-correspondences/`.
 - Optional camera intrinsics JSON.
 - Optional segmentation prompt: text, point, box, or mask.
 - VGGT-Omega checkpoint path when running depth/camera estimation.
@@ -27,6 +28,11 @@ run. Mesh loading prefers `trimesh`, with a minimal OBJ fallback.
 `pipeline/correspondences.py` loads CSV/JSON correspondences into a canonical
 `Correspondence` dataclass. It supports frame filtering and optional
 segmentation-mask-based filtering or downweighting.
+
+It also recognizes normalized registration records from the
+`manual-correspondences` submodule and resolves each `ct_landmark_id` through
+`ct_landmarks_path` or an embedded landmark catalog so downstream registration
+always receives explicit 2D pixel to 3D mesh-point pairs.
 
 ## Stage 3: MedicalSAM3 Segmentation
 

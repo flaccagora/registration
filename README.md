@@ -17,14 +17,16 @@ Key entry points:
 - [`examples/correspondences/`](examples/correspondences) - CSV and JSON schema examples.
 - [`scripts/dry_run.py`](scripts/dry_run.py) - synthetic geometry dry run, not executed during setup.
 - [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) - Git workflow and first commit instructions.
-- [`docs/SUBMODULES.md`](docs/SUBMODULES.md) - external model repository submodule workflow.
+- [`docs/SUBMODULES.md`](docs/SUBMODULES.md) - external repository submodule workflow.
 
-Preferred external model repo layout:
+Preferred external repo layout:
 
 ```text
 external/vggt-omega/
 external/Medical-SAM3/
+external/manual-correspondences/
 ```
 
-Existing root-level `vggt-omega/` and `Medical-SAM3/` checkouts are supported
-as a legacy fallback until submodules are initialized.
+Existing root-level `vggt-omega/`, `Medical-SAM3/`, and
+`manual-correspondences/` checkouts are supported as a legacy fallback until
+submodules are initialized.

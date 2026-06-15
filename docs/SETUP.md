@@ -25,11 +25,12 @@ model dependency because users often need a CUDA-specific wheel.
 
 ## Local Repositories
 
-The prototype now prefers external model repos as Git submodules:
+The prototype now prefers upstream model and annotation repos as Git submodules:
 
 ```text
 external/vggt-omega/
 external/Medical-SAM3/
+external/manual-correspondences/
 ```
 
 Existing root-level local checkouts are still supported as a fallback:
@@ -37,6 +38,7 @@ Existing root-level local checkouts are still supported as a fallback:
 ```text
 vggt-omega/
 Medical-SAM3/
+manual-correspondences/
 ```
 
 Use `.env.example` as the starting point for local paths:
@@ -50,8 +52,8 @@ You can also override paths in the Gradio UI or in a config file such as
 
 ## Submodules
 
-The root `.gitmodules` records the upstream model repository URLs. Initialize
-them later with:
+The root `.gitmodules` records the upstream model and annotation repository
+URLs. Initialize them later with:
 
 ```bash
 git submodule update --init --recursive
@@ -90,6 +92,19 @@ offline work.
 
 Mask prompts bypass MedicalSAM3 model loading and can be used in CPU-only
 structural tests.
+
+## Manual Correspondences
+
+The preferred annotation repo path is:
+
+```text
+external/manual-correspondences/
+```
+
+The registration pipeline accepts both its own canonical CSV/JSON schema and
+the normalized registration JSON records produced by the `manual-correspondences`
+repo. For normalized records, each landmark's `ct_landmark_id` is resolved via
+the frame record's `ct_landmarks_path` or an embedded landmark catalog.
 
 ## Optional Dry Run
 

@@ -35,11 +35,13 @@ registration/
   external/
     vggt-omega/
     Medical-SAM3/
+    manual-correspondences/
 ```
 
-The model repositories are expected to be Git submodules under `external/`.
-Existing root-level `vggt-omega/` and `Medical-SAM3/` checkouts remain
-supported as a legacy fallback until the submodules are initialized.
+The model and annotation repositories are expected to be Git submodules under
+`external/`. Existing root-level `vggt-omega/`, `Medical-SAM3/`, and
+`manual-correspondences/` checkouts remain supported as a legacy fallback until
+the submodules are initialized.
 
 ## Quick Start Later
 
@@ -83,10 +85,10 @@ python scripts/dry_run.py --out-dir outputs/dry_run
 - Add mesh silhouette rendering and mask-overlap optimization.
 - Add formal unit tests around PnP failure modes, malformed correspondence
   files, and deformation regularization.
-- Add dataset-specific adapters for existing `manual-correspondences/` Label
-  Studio exports.
-- Replace legacy root-level model checkouts with initialized submodules under
-  `external/` in shared clones.
+- Add dataset-specific adapters for raw annotation exports that have not already
+  been normalized by `manual-correspondences`.
+- Replace legacy root-level model and annotation checkouts with initialized
+  submodules under `external/` in shared clones.
 
 ## Known Limitations
 
